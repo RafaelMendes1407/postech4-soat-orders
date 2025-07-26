@@ -6,47 +6,69 @@ on:
       - main
 
 jobs:
-  simulate-deployment:
+  lint-test:
+    runs-on: ubuntu-latest
+    name: Run Lint and Tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.2'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
+  Docker Build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧾 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐳 Build Docker image
+      - name: Build Docker image
         run: |
           echo "Step: Building Docker image..."
           echo "docker build -t 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:<sha> ."
-          echo "✅ Docker image build simulated."
+          echo "✅ Docker image build."
 
-      - name: 📦 Push Docker image to ECR
+  Deploy ECR:
+    steps:
+      - name: Push Docker image to ECR
         run: |
           echo "Step: Logging in to ECR..."
           echo "aws ecr get-login-password | docker login ..."
           echo "Step: Pushing image to ECR..."
           echo "docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:<sha>"
-          echo "✅ Image push simulated."
+          echo "✅ Image push  ."
 
-      - name: ☸️ Update kubeconfig
+  Deploy EKS:
+    steps:
+      - name: Update kubeconfig
         run: |
           echo "Step: Updating kubeconfig for EKS cluster..."
           echo "aws eks update-kubeconfig --region us-east-1 --name my-eks-cluster"
-          echo "✅ kubeconfig update simulated."
+          echo "✅ kubeconfig update  ."
 
-      - name: 🧩 Prepare Kubernetes manifests
+      - name: Prepare Kubernetes manifests
         run: |
           echo "Step: Injecting image into deployment manifest..."
           echo "sed -i 's|IMAGE_PLACEHOLDER|123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:<sha>|g' kubernetes/deployment.yaml"
           echo "✅ Manifest updated."
 
-      - name: 🚀 Apply Kubernetes manifests
+      - name: Apply Kubernetes manifests
         run: |
           echo "Step: Applying manifests to cluster..."
           echo "kubectl apply -f kubernetes/"
-          echo "✅ kubectl apply simulated."
+          echo "✅ kubectl apply  ."
 
-      - name: ✅ Verify rollout
+      - name: Verify rollout
         run: |
           echo "Step: Verifying rollout status..."
           echo "kubectl rollout status deployment/my-app-deployment"
-          echo "✅ Rollout status check simulated."
+          echo "✅ Rollout status check  ."

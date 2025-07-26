@@ -1,6 +1,7 @@
 package dto
 
 import (
+	entity "post-tech-challenge-10soat/internal/entities"
 	"time"
 )
 
@@ -22,4 +23,17 @@ type OrderDTO struct {
 	Total     float64
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+func (d OrderDTO) ToEntity() entity.Order {
+	return entity.Order{
+		Id:        d.Id,
+		Number:    d.Number,
+		Status:    entity.OrderStatus(d.Status),
+		ClientId:  d.ClientId,
+		PaymentId: d.PaymentId,
+		Total:     d.Total,
+		CreatedAt: d.CreatedAt,
+		UpdatedAt: d.UpdatedAt,
+	}
 }

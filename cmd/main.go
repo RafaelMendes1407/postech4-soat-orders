@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
+
 	_ "post-tech-challenge-10soat/docs"
 	router "post-tech-challenge-10soat/internal/delivery/http"
+	"post-tech-challenge-10soat/internal/external/mongo"
 	"post-tech-challenge-10soat/internal/external/postgres"
 	"post-tech-challenge-10soat/internal/infrastructure/config"
 	dependency "post-tech-challenge-10soat/internal/infrastructure/di"
@@ -49,6 +52,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctxMongo, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	mongo, errMongo := mongo.New(ctxMongo, conf.MONGO)
+
+	if errMongo != nil {
+		slog.Error("Error initializing database connection", "error", errMongo)
+		os.Exit(1)
+	}
+
+	slog.Info("Successfully connected to the database", "MONGO", conf.MONGO.Connection)
+
 	slog.Info("Successfully connected to the database", "DB", conf.DB.Connection)
 
 	errPostgresMigrate := db.Migrate()
@@ -58,6 +73,11 @@ func main() {
 	}
 
 	defer db.Close()
+
+	if (errMongo != nil) || (errPostgresMigrate != nil || errPostgres != nil) {
+		slog.Error("Error initializing database connection", "error", errMongo)
+		os.Exit(1)
+	}
 
 	// di
 	healthHandler, clientHandler, productHandler, orderHandler := dependency.Setup(conf.App, db, mongo)

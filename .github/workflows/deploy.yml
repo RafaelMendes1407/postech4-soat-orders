@@ -1,0 +1,138 @@
+name: Main Branch CI/CD
+
+permissions:
+  id-token: write
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: sa-east-1
+  ECR_REPOSITORY: soat10
+  CLUSTER_NAME: soat10-application
+  DEPLOYMENT_NAMESPACE: soat10-app
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    name: Lint and Test
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.2'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
+
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: lint-test
+    name: Build and Push Docker Image
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::558797546085:role/GithubActions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        run: |
+          IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
+          echo "Building image $IMAGE_URI"
+          docker build -t $IMAGE_URI .
+          echo "Pushing image $IMAGE_URI"
+          docker push $IMAGE_URI
+
+  deploy-to-eks:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    name: Deploy to EKS
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::558797546085:role/GithubActions
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig and Apply Manifests
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+          kubectl create namespace $DEPLOYMENT_NAMESPACE || true
+          kubectl apply -f kubernetes/
+
+      - name: Check Deployment Rollout Status
+        id: rollout-status
+        continue-on-error: true
+        run: |
+          kubectl rollout status deployment/soat10-app -n $DEPLOYMENT_NAMESPACE
+
+      - name: Get Deployment Events if Rollout Failed
+        if: steps.rollout-status.outcome == 'failure'
+        run: |
+          echo "Rollout failed. Gathering deployment events..."
+          kubectl describe deployment soat10-app -n $DEPLOYMENT_NAMESPACE
+
+      - name: Get Pods Status if Rollout Failed
+        if: steps.rollout-status.outcome == 'failure'
+        run: |
+          kubectl get pods -n $DEPLOYMENT_NAMESPACE -o wide -l app=soat10-app
+
+      - name: Get Events for Failing Pods if Rollout Failed
+        if: steps.rollout-status.outcome == 'failure'
+        run: |
+          POD_NAMES=$(kubectl get pods -n $DEPLOYMENT_NAMESPACE -l app=soat10-app --field-selector=status.phase!=Running -o jsonpath='{.items[*].metadata.name}')
+          if [ -z "$POD_NAMES" ]; then
+            echo "No non-running pods found."
+          else
+            for POD_NAME in $POD_NAMES; do
+              echo "--- Describing pod: $POD_NAME ---"
+              kubectl describe pod $POD_NAME -n $DEPLOYMENT_NAMESPACE
+            done
+          fi
+
+      - name: Get Logs for Failing Pods if Rollout Failed
+        if: steps.rollout-status.outcome == 'failure'
+        run: |
+          POD_NAMES=$(kubectl get pods -n $DEPLOYMENT_NAMESPACE -l app=soat10-app --field-selector=status.phase!=Running,status.phase!=Succeeded -o jsonpath='{.items[*].metadata.name}')
+          if [ -z "$POD_NAMES" ]; then
+            echo "No problematic pods found."
+          else
+            for POD_NAME in $POD_NAMES; do
+              echo "--- Logs for pod: $POD_NAME (current) ---"
+              kubectl logs $POD_NAME -n $DEPLOYMENT_NAMESPACE || true
+              echo "--- Logs for pod: $POD_NAME (previous if any) ---"
+              kubectl logs -p $POD_NAME -n $DEPLOYMENT_NAMESPACE || true
+            done
+          fi
+
+      - name: Final Rollout Status Check
+        if: steps.rollout-status.outcome == 'failure'
+        run: |
+          echo "Deployment rollout failed. Check previous debug steps for details."
+          exit 1

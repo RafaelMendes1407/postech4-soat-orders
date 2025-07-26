@@ -1,0 +1,45 @@
+name: Feature Branch Check & PR
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    name: Run Lint and Tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.2'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
+
+  # create-pr:
+  #   needs: lint-test
+  #   runs-on: ubuntu-latest
+  #   name: Create PR to main
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+
+  #     - name: Create pull request
+  #       uses: peter-evans/create-pull-request@v5
+  #       with:
+  #         token: ${{ secrets.GH_TOKEN }}
+  #         base: main
+  #         branch: ${{ github.ref_name }}
+  #         title: 'Auto PR: Merge ${{ github.ref_name }} to main'
+  #         body: |
+  #           Este PR foi gerado automaticamente após sucesso nos testes e lint da branch `${{ github.ref_name }}`

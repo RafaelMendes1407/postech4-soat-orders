@@ -24,8 +24,10 @@ jobs:
 
       - name: Run tests
         run: go test ./...
-  Docker Build:
+
+  docker-build:
     runs-on: ubuntu-latest
+    name: Docker Build
 
     steps:
       - name: Checkout code
@@ -37,7 +39,9 @@ jobs:
           echo "docker build -t 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:<sha> ."
           echo "✅ Docker image build."
 
-  Deploy ECR:
+  deploy-ecr:
+    runs-on: ubuntu-latest
+    name: Docker Build
     steps:
       - name: Push Docker image to ECR
         run: |
@@ -47,7 +51,9 @@ jobs:
           echo "docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app:<sha>"
           echo "✅ Image push  ."
 
-  Deploy EKS:
+  deploy-eks:
+    runs-on: ubuntu-latest
+    name: Docker Build
     steps:
       - name: Update kubeconfig
         run: |

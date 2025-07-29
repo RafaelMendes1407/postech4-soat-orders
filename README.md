@@ -99,14 +99,7 @@ O docker-compose.yaml define os serviços que compõem a aplicação, incluindo 
 
 Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull requests.
 
-**Melhorias Futuras**
+8. **Cobertura de Testes**
 
-Implementar paginação para endpoints que retornam listas.
-Aprimorar o tratamento de erros, fornecendo mensagens mais detalhadas.
-Adicionar mais testes unitários e de integração.
-Implementar mecanismos de autenticação e autorização.
-Implementar logging mais robusto e estruturado.
-Considerações de Segurança
-Senha do Banco de Dados: A senha do banco de dados deve ser gerenciada com segurança, idealmente utilizando Docker Secrets (recomendado para produção) ou, no mínimo, através de um arquivo .env que não seja versionado.
-Este README atualizado fornece uma visão geral mais completa do projeto, incluindo informações sobre a arquitetura, tecnologias utilizadas, configuração, execução, testes e considerações de segurança.
-
+As aplicações precisam de 80% de cobertura para serem aprovadas no PR.
+![DER](./diagram/coverage.png)

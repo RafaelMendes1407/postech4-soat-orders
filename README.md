@@ -102,4 +102,4 @@ Contribuições são bem-vindas! Sinta-se à vontade para abrir issues e pull re
 8. **Cobertura de Testes**
 
 As aplicações precisam de 80% de cobertura para serem aprovadas no PR.
-![DER](./diagram/coverage.png)
+![coverage](./diagram/coverage.png)
